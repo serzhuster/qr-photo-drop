@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mobile to PC Upload</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      width: 100%;
+      position: relative;
+    }
+
+    .header h1 { font-size: 22px; color: #00d4ff; }
+    .header p  { color: #888; margin-top: 4px; font-size: 13px; }
+
+    .help-btn {
+      position: absolute;
+      top: 0; right: 0;
+      background: transparent;
+      border: 1px solid #444;
+      color: #aaa;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .help-btn:hover { background: #0f3460; color: #00d4ff; border-color: #00d4ff; }
+
+    .card {
+      background: #0f3460;
+      border-radius: 20px;
+      padding: 24px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+
+    .status { font-size: 17px; font-weight: 600; margin: 12px 0; }
+    .status.waiting   { color: #ffc107; }
+    .status.active    { color: #00d4ff; }
+    .status.receiving { color: #4caf50; }
+
+    .timer { color: #888; font-size: 13px; margin-bottom: 12px; }
+
+    #qrImage { max-width: 280px; border-radius: 12px; margin: 12px 0; }
+
+    .url-text {
+      background: #1a1a2e;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      color: #00d4ff;
+      word-break: break-all;
+      margin-top: 10px;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #00d4ff, #0099cc);
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 6px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,212,255,0.3); }
+    .btn.secondary { background: #333; }
+
+    .files-list { margin-top: 14px; max-height: 200px; overflow-y: auto; }
+    .file-item {
+      display: flex; align-items: center;
+      padding: 10px; background: #1a1a2e;
+      border-radius: 8px; margin-bottom: 6px; text-align: left;
+    }
+    .file-icon  { font-size: 22px; margin-right: 10px; }
+    .file-name  { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-size  { color: #888; font-size: 11px; }
+
+    .save-path {
+      margin-top: 18px;
+      padding: 10px 14px;
+      background: #1a1a2e;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #888;
+    }
+    .save-path span { color: #00d4ff; }
+
+    /* Help modal */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #0f3460;
+      border-radius: 16px;
+      padding: 28px;
+      max-width: 380px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      position: relative;
+    }
+    .modal h2 { color: #00d4ff; font-size: 18px; margin-bottom: 16px; }
+    .modal .close-btn {
+      position: absolute; top: 14px; right: 16px;
+      background: none; border: none; color: #888;
+      font-size: 20px; cursor: pointer;
+    }
+    .modal .close-btn:hover { color: white; }
+
+    .step {
+      display: flex; align-items: flex-start;
+      margin-bottom: 14px;
+    }
+    .step-num {
+      background: #00d4ff;
+      color: #000;
+      font-weight: 700;
+      font-size: 13px;
+      border-radius: 50%;
+      width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-right: 12px; margin-top: 1px;
+    }
+    .step-text { font-size: 14px; color: #ccc; line-height: 1.5; }
+    .step-text strong { color: white; }
+
+    .modal-note {
+      margin-top: 16px;
+      padding: 10px 14px;
+      background: #1a1a2e;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #888;
+      line-height: 1.5;
+    }
+    .modal-note span { color: #ffc107; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>📱 Mobile to PC Upload</h1>
+    <p>Send photos from your phone to this PC</p>
+    <button class="help-btn" onclick="openHelp()">? Help</button>
+  </div>
+
+  <div class="card">
+    <!-- Waiting view -->
+    <div id="waitingView">
+      <div class="status waiting">⏳ Waiting for connection</div>
+      <p style="color:#888; margin:14px 0; font-size:14px;">Click the button to generate a QR code.<br>Scan it with your phone to start sending photos.</p>
+      <button class="btn" onclick="generateQR()">📱 Generate QR Code</button>
+    </div>
+
+    <!-- QR view -->
+    <div id="qrContainer" style="display:none;">
+      <div class="status active">✅ QR Code Ready</div>
+      <img id="qrImage" alt="QR Code">
+      <div class="url-text" id="urlText"></div>
+      <div class="timer" id="timer">Expires in: 5:00</div>
+      <button class="btn secondary" onclick="resetSession()">🔄 Reset</button>
+    </div>
+
+    <!-- Receiving view -->
+    <div id="receivingView" style="display:none;">
+      <div class="status receiving">📥 Receiving files...</div>
+      <div class="files-list" id="filesList"></div>
+      <button class="btn secondary" onclick="resetSession()">🔄 New Session</button>
+    </div>
+  </div>
+
+  <div class="save-path" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+    <div style="overflow:hidden;">
+      Save to: <span id="savePath" style="color:#00d4ff; word-break:break-all;">C:\MobileUpload</span>
+    </div>
+    <button onclick="changeFolder()" style="
+      flex-shrink:0;
+      background:transparent;
+      border:1px solid #444;
+      color:#aaa;
+      padding:5px 12px;
+      border-radius:7px;
+      font-size:12px;
+      cursor:pointer;
+      white-space:nowrap;
+    ">📁 Change</button>
+  </div>
+
+  <div style="margin-top:14px; font-size:11px; color:#555; text-align:center;">
+    Developed by SerzHuster
+  </div>
+
+  <!-- Help Modal -->
+  <div class="modal-overlay" id="helpModal">
+    <div class="modal">
+      <button class="close-btn" onclick="closeHelp()">✕</button>
+      <h2>How to use</h2>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Make sure your phone and this PC are connected to the <strong>same Wi-Fi network</strong>.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Click <strong>"Generate QR Code"</strong> on this screen.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Open your phone camera and <strong>scan the QR code</strong>. A web page will open automatically.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">Tap <strong>"Select Photos"</strong>, choose the photos you want to send, then tap <strong>"Send"</strong>.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-text">Photos are saved automatically to <strong>C:\MobileUpload</strong> on this PC.</div>
+      </div>
+
+      <div class="modal-note">
+        <span>⚠ Note:</span> The QR code expires after <strong>5 minutes</strong>. If it expires, click Reset and generate a new one.<br><br>
+        Each transfer session accepts connections only from your local network (Wi-Fi). Your files never leave your network.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let timerInterval;
+
+    async function generateQR() {
+      try {
+        const res = await fetch('/api/qr');
+        const data = await res.json();
+
+        document.getElementById('qrImage').src = data.qr;
+        document.getElementById('urlText').textContent = data.url;
+        if (data.uploadDir) document.getElementById('savePath').textContent = data.uploadDir;
+
+        document.getElementById('waitingView').style.display = 'none';
+        document.getElementById('qrContainer').style.display = 'block';
+
+        startTimer(300);
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    function startTimer(seconds) {
+      clearInterval(timerInterval);
+      const timerEl = document.getElementById('timer');
+
+      timerInterval = setInterval(async () => {
+        seconds--;
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        timerEl.textContent = `Expires in: ${mins}:${secs.toString().padStart(2, '0')}`;
+
+        if (seconds <= 0) { clearInterval(timerInterval); resetSession(); }
+      }, 1000);
+    }
+
+    function resetSession() {
+      fetch('/api/reset', { method: 'POST' });
+      clearInterval(timerInterval);
+      lastFileCount = 0;
+      document.getElementById('waitingView').style.display = 'block';
+      document.getElementById('qrContainer').style.display = 'none';
+      document.getElementById('receivingView').style.display = 'none';
+      document.getElementById('filesList').innerHTML = '';
+    }
+
+    async function changeFolder() {
+      if (window.electron && window.electron.selectFolder) {
+        const newPath = await window.electron.selectFolder();
+        document.getElementById('savePath').textContent = newPath;
+      }
+    }
+
+    function openHelp()  { document.getElementById('helpModal').classList.add('open'); }
+    function closeHelp() { document.getElementById('helpModal').classList.remove('open'); }
+
+    // Close modal on overlay click
+    document.getElementById('helpModal').addEventListener('click', function(e) {
+      if (e.target === this) closeHelp();
+    });
+
+    // IPC from main process
+    if (window.electron) {
+      window.electron.on('files-received', (data) => onFilesReceived(data.files));
+      window.electron.on('session-reset', () => resetSession());
+    }
+
+    // Polling fallback
+    let lastFileCount = 0;
+    setInterval(async () => {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (data.uploadDir) document.getElementById('savePath').textContent = data.uploadDir;
+        if (data.status === 'active' && data.session) {
+          const files = data.session.files || [];
+          if (files.length > lastFileCount) {
+            lastFileCount = files.length;
+            onFilesReceived(files);
+          }
+        } else {
+          lastFileCount = 0;
+        }
+      } catch (e) {}
+    }, 1500);
+
+    function onFilesReceived(files) {
+      document.getElementById('qrContainer').style.display = 'none';
+      document.getElementById('receivingView').style.display = 'block';
+      document.getElementById('filesList').innerHTML = files.map(f => `
+        <div class="file-item">
+          <div class="file-icon">🖼️</div>
+          <div class="file-name">${f.name}</div>
+          <div class="file-size">${formatSize(f.size)}</div>
+        </div>
+      `).join('');
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Photos</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container { max-width: 500px; margin: 0 auto; }
+
+    .header { text-align: center; color: white; margin-bottom: 24px; }
+    .header h1 { font-size: 26px; margin-bottom: 6px; }
+    .header p  { opacity: 0.8; font-size: 14px; }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+
+    .status-icon { font-size: 48px; margin-bottom: 14px; }
+    .status-text { font-size: 18px; font-weight: 600; color: #333; }
+    .status-sub  { color: #666; margin-top: 8px; font-size: 14px; }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn:hover   { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102,126,234,0.4); }
+    .btn:active  { transform: translateY(0); }
+    .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    input[type="file"] { display: none; }
+
+    .progress-wrap { margin-top: 16px; display: none; }
+    .progress-bar  { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); width: 0%; transition: width 0.3s; }
+    .progress-text { color: #666; margin-top: 8px; font-size: 13px; }
+
+    .file-list { margin-top: 16px; }
+    .file-item {
+      display: flex; align-items: center;
+      padding: 10px 12px;
+      background: #f5f5f5;
+      border-radius: 8px;
+      margin-bottom: 6px;
+    }
+    .file-icon { font-size: 22px; margin-right: 10px; }
+    .file-info { flex: 1; text-align: left; }
+    .file-name { font-weight: 500; color: #333; font-size: 13px; }
+    .file-size { color: #888; font-size: 11px; margin-top: 2px; }
+
+    .card.success { background: linear-gradient(135deg, #11998e, #38ef7d); color: white; }
+    .card.success .status-text,
+    .card.success .status-sub { color: white; }
+
+    .card.error { background: linear-gradient(135deg, #eb3349, #f45c43); color: white; }
+    .card.error .status-text,
+    .card.error .status-sub  { color: white; }
+
+    .retry-btn {
+      background: white;
+      color: #eb3349;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📸 Send Photos</h1>
+      <p>Transfer photos to your PC over Wi-Fi</p>
+    </div>
+
+    <div id="statusCard" class="card">
+      <div class="status-icon">⏳</div>
+      <div class="status-text">Connecting...</div>
+    </div>
+
+    <div id="uploadSection" style="display:none;">
+      <div class="card">
+        <div class="status-icon">📱</div>
+        <div class="status-text">Connected!</div>
+        <div class="status-sub">Select the photos you want to send</div>
+      </div>
+
+      <input type="file" id="fileInput" multiple accept="image/*,video/*">
+
+      <button class="btn" onclick="document.getElementById('fileInput').click()">
+        🖼️ Select Photos
+      </button>
+
+      <div id="fileList" class="file-list"></div>
+
+      <div id="progressWrap" class="progress-wrap">
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+        <div id="progressText" class="progress-text">Uploading...</div>
+      </div>
+
+      <button id="sendBtn" class="btn" style="display:none; background: linear-gradient(135deg, #11998e, #38ef7d);" onclick="uploadFiles()">
+        🚀 Send Photos
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const token = new URLSearchParams(window.location.search).get('token');
+    let selectedFiles = [];
+
+    async function checkConnection() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (data.status === 'active' && data.session && data.session.token === token) {
+          showUpload();
+        } else {
+          showError('Session expired or not found.<br>Please scan the QR code again.');
+        }
+      } catch (e) {
+        showError('Cannot connect to PC.<br>Make sure you are on the same Wi-Fi network.');
+      }
+    }
+
+    function showUpload() {
+      document.getElementById('statusCard').style.display = 'none';
+      document.getElementById('uploadSection').style.display = 'block';
+    }
+
+    function showError(msg) {
+      const card = document.getElementById('statusCard');
+      card.className = 'card error';
+      card.innerHTML = `
+        <div class="status-icon">❌</div>
+        <div class="status-text">Error</div>
+        <div class="status-sub">${msg}</div>
+        <button class="retry-btn" onclick="location.reload()">Try again</button>
+      `;
+    }
+
+    function showSuccess(count) {
+      document.getElementById('uploadSection').style.display = 'none';
+      const card = document.getElementById('statusCard');
+      card.style.display = 'block';
+      card.className = 'card success';
+      card.innerHTML = `
+        <div class="status-icon">✅</div>
+        <div class="status-text">Done!</div>
+        <div class="status-sub">${count} photo${count !== 1 ? 's' : ''} sent successfully</div>
+      `;
+    }
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+      selectedFiles = Array.from(e.target.files);
+      const list = document.getElementById('fileList');
+      list.innerHTML = selectedFiles.map(f => `
+        <div class="file-item">
+          <div class="file-icon">🖼️</div>
+          <div class="file-info">
+            <div class="file-name">${f.name}</div>
+            <div class="file-size">${formatSize(f.size)}</div>
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('sendBtn').style.display = selectedFiles.length ? 'block' : 'none';
+    });
+
+    async function uploadFiles() {
+      if (!selectedFiles.length) return;
+
+      const progressWrap = document.getElementById('progressWrap');
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('progressText');
+      const sendBtn = document.getElementById('sendBtn');
+
+      progressWrap.style.display = 'block';
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending...';
+
+      // Upload in batches of 5
+      const batchSize = 5;
+      let totalSent = 0;
+
+      try {
+        for (let i = 0; i < selectedFiles.length; i += batchSize) {
+          const batch = selectedFiles.slice(i, i + batchSize);
+          const formData = new FormData();
+          batch.forEach(f => formData.append('files', f));
+
+          const res = await fetch(`/api/upload?token=${token}`, { method: 'POST', body: formData });
+          const data = await res.json();
+
+          if (!data.success) throw new Error(data.error || 'Upload failed');
+
+          totalSent += batch.length;
+          const pct = Math.round((totalSent / selectedFiles.length) * 100);
+          progressFill.style.width = pct + '%';
+          progressText.textContent = `${totalSent} / ${selectedFiles.length} photos sent`;
+        }
+
+        setTimeout(() => showSuccess(totalSent), 600);
+      } catch (e) {
+        progressText.textContent = 'Error: ' + e.message;
+        sendBtn.disabled = false;
+        sendBtn.textContent = '🚀 Send Photos';
+      }
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    if (token) { checkConnection(); }
+    else { showError('Missing token.<br>Please scan the QR code again.'); }
+  </script>
+</body>
+</html>
